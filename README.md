@@ -6,9 +6,12 @@ later.
 The code itself is very likely atrocious - this is a beginner Rust project.
 
 ## Quick Start
-The code expects a file called `test.pdf` in the project directory. 
+The code runs on the pdf file specified in the first command line argument. If
+not specified, it defaults to "./test.pdf".
+
 ```sh
-cargo run
+cargo run ./path/to/pdf-file.pdf
+cargo run # opens ./test.pdf
 ```
 
 ## References

@@ -1,4 +1,4 @@
-use std::{fmt, str};
+use std::{env, fmt, str};
 
 #[derive(Debug)]
 enum Keyword {
@@ -578,7 +578,13 @@ impl Lexer {
 }
 
 fn main() -> Result<(), ()> {
-    let path = "test.pdf";
+    let args: Vec<_> = env::args().collect();
+    let path = if args.len() > 1 {
+        &args[1]
+    } else {
+        "./test.pdf"
+    };
+
     let data = std::fs::read(path).map_err(|e| {
         eprintln!("ERROR: Could not read file {path}: {e}");
     })?;

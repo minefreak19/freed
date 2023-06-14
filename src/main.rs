@@ -544,7 +544,7 @@ impl Lexer {
 
     fn name_token(&mut self) -> Option<Token> {
         let mut result = vec![];
-        while !Self::is_whitespace(*self.data.get(self.cur)?) {
+        while Self::is_normal(*self.data.get(self.cur)?) {
             match self.data[self.cur] {
                 b'#' => {
                     self.chop_char();
@@ -556,16 +556,6 @@ impl Lexer {
                         })
                         .unwrap();
                     result.push(x);
-                }
-
-                b']' => {
-                    break;
-                }
-
-                b'>' => {
-                    if let Some(b'>') = self.data.get(self.cur + 1) {
-                        break;
-                    }
                 }
 
                 _ => {

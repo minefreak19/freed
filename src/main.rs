@@ -234,6 +234,7 @@ impl Lexer {
     }
 
     fn next_token(&mut self) -> Option<Token> {
+        // TODO: Reading stream binary data should be optimised
         if self.state == LexerState::Stream {
             if self.cur == self.data.len() {
                 return None;

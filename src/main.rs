@@ -119,7 +119,10 @@ enum Object<'a> {
     Name(&'a str),
     Array(Vec<Object<'a>>),
     Dict(HashMap<&'a str, Object<'a>>),
-    Stream(HashMap<&'a str, Object<'a>>, &'a [u8]),
+    Stream {
+        dict: HashMap<&'a str, Object<'a>>,
+        data: &'a [u8],
+    },
     // refnum, gennum
     RawReference(i64, i64),
 }
@@ -140,7 +143,9 @@ impl fmt::Debug for Object<'_> {
             Object::Name(name) => write!(f, "Name(`{}`)", name),
             Object::Array(arr) => write!(f, "Array({:#?})", arr),
             Object::Dict(dict) => write!(f, "Dict({:#?})", dict),
-            Object::Stream(dict, data) => write!(f, "Stream(dict: {:#?}, data: {:#?})", dict, data),
+            Object::Stream { dict, data } => {
+                write!(f, "Stream(dict: {:#?}, data: {:#?})", dict, data)
+            }
             Object::RawReference(refnum, gennum) => {
                 write!(f, "RawReference({}, {})", refnum, gennum)
             }
@@ -644,7 +649,7 @@ impl<'a> Parser<'a> {
         }
 
         // TODO: Decode data in stream objects
-        return Object::Stream(dict, data);
+        return Object::Stream { dict, data };
     }
 
     fn chop_obj(&mut self) -> Object<'a> {

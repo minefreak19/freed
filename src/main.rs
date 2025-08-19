@@ -39,6 +39,9 @@ enum Keyword {
     EndObj,
     Stream,
     EndStream,
+    True,
+    False,
+    Null,
 }
 
 impl FromStr for Keyword {
@@ -56,6 +59,12 @@ impl FromStr for Keyword {
 
             "stream" => Ok(Keyword::Stream),
             "endstream" => Ok(Keyword::EndStream),
+
+            "true" => Ok(Keyword::True),
+            "false" => Ok(Keyword::False),
+
+            "null" => Ok(Keyword::Null),
+
             _ => Err(()),
         }
     }
@@ -113,6 +122,8 @@ impl fmt::Debug for Token {
 
 #[derive(Clone)]
 enum Object<'a> {
+    Null,
+    Bool(bool),
     Int(i64),
     Float(f64),
     String(Vec<u8>),
@@ -123,6 +134,7 @@ enum Object<'a> {
         dict: HashMap<&'a str, Object<'a>>,
         data: &'a [u8],
     },
+    // TODO: Turn these into named arguments
     // refnum, gennum
     RawReference(i64, i64),
 }
@@ -130,6 +142,8 @@ enum Object<'a> {
 impl fmt::Debug for Object<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Object::Null => write!(f, "Null"),
+            Object::Bool(b) => write!(f, "Bool({})", b),
             Object::Int(i) => write!(f, "Int({})", i),
             Object::Float(fl) => write!(f, "Float({})", fl),
             Object::String(s) => match String::from_utf8(s.clone()) {
@@ -290,7 +304,16 @@ impl<'a> Parser<'a> {
                             {
                                 let saved = self.cur;
                                 self.cur = offset;
+                                if cfg!(debug_assertions) {
+                                    println!(
+                                        "Parsing object ({}, {}) at index {}.",
+                                        nref, ngen, self.cur
+                                    );
+                                }
                                 let obj = self.chop_obj();
+                                if cfg!(debug_assertions) {
+                                    println!("Parsed object: {:?}", obj);
+                                }
                                 self.xref_table.insert(nref, obj);
                                 self.cur = saved;
                             }
@@ -494,8 +517,11 @@ impl<'a> Parser<'a> {
 
                                 _ => {
                                     panic!(
-                                        "index {}: Invalid escape character `{}`",
-                                        self.cur, self.data[self.cur] as char
+                                        "index {}: Invalid escape character {:?} ({:?})",
+                                        self.cur,
+                                        self.data[self.cur] as char,
+                                        str::from_utf8(&self.data[self.cur - 1..self.cur + 10])
+                                            .unwrap_or("<invalid utf-8>"),
                                     );
                                 }
                             }
@@ -527,7 +553,6 @@ impl<'a> Parser<'a> {
 
             _ => {
                 // TODO: Add support for comments
-                // TODO: Implement support for boolean objects
                 // TODO: Add support for the null object
                 let word = self.chop_word();
 
@@ -653,10 +678,18 @@ impl<'a> Parser<'a> {
     }
 
     fn chop_obj(&mut self) -> Object<'a> {
+        if cfg!(debug_assertions) {
+            println!(
+                "Chopping object at index {}: {:?}",
+                self.cur,
+                str::from_utf8(&self.data[self.cur..self.cur + 10]).unwrap_or("<invalid UTF-8>"),
+            );
+        }
         match self.peek_token() {
             Some(Token::ArrayBegin) => self.chop_array_obj(),
             Some(Token::DictBegin) => self.chop_dict_obj(),
             Some(Token::Solidus) => self.chop_name_obj(),
+
             Some(Token::Int(i)) => {
                 self.chop_token();
                 let saved = self.cur;
@@ -707,16 +740,40 @@ impl<'a> Parser<'a> {
                 }
                 Object::Int(i)
             }
+
             Some(Token::Float(f)) => {
                 self.chop_token();
                 Object::Float(f)
             }
+
             Some(Token::String(str)) => {
                 self.chop_token();
                 Object::String(str)
             }
+
+            Some(Token::Keyword(Keyword::True)) => {
+                self.chop_token();
+                Object::Bool(true)
+            }
+
+            Some(Token::Keyword(Keyword::False)) => {
+                self.chop_token();
+                Object::Bool(false)
+            }
+
+            Some(Token::Keyword(Keyword::Null)) => {
+                self.chop_token();
+                Object::Null
+            }
+
             _ => {
-                unimplemented!("{:?}", self.peek_token());
+                unimplemented!(
+                    "index {}: {:?} ({:?})",
+                    self.cur.clone(),
+                    self.peek_token(),
+                    str::from_utf8(&self.data[self.cur..self.cur + 10])
+                        .unwrap_or("<invalid utf-8>")
+                );
             }
         }
     }

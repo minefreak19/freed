@@ -413,8 +413,45 @@ impl<'a> Parser<'a> {
                     self.chop_char();
                     return Some(Token::DictBegin);
                 }
-                // TODO: Add support for hexadecimal strings
-                todo!("Hex string literals");
+
+                // Hex string
+
+                let mut result = Vec::<u8>::new();
+                // TODO: This doesn't need to be heap allocated but I can't be bothered to
+                // figure out the Rust way of doing this right now
+                let mut current_byte_hex = String::with_capacity(2);
+                loop {
+                    self.chop_while(Self::is_ascii_whitespace);
+                    if self.data[self.cur] == b'>' {
+                        self.chop_char();
+                        if !current_byte_hex.is_empty() {
+                            current_byte_hex.push('0');
+                            result.push(
+                                u8::from_str_radix(&current_byte_hex, 16)
+                                    .expect("Only hexdigits appended to current_byte_string"),
+                            );
+                            current_byte_hex.clear();
+                        }
+                        return Some(Token::String(result));
+                    }
+
+                    if !self.data[self.cur].is_ascii_hexdigit() {
+                        panic!(
+                            "index {}: Illegal character `{}` in hex literal.",
+                            self.cur, self.data[self.cur] as char
+                        );
+                    }
+                    current_byte_hex.push(self.data[self.cur] as char);
+                    self.chop_char();
+
+                    if current_byte_hex.len() == 2 {
+                        result.push(
+                            u8::from_str_radix(&current_byte_hex, 16)
+                                .expect("Only hexdigits appended to current_byte_string"),
+                        );
+                        current_byte_hex.clear();
+                    }
+                }
             }
 
             b'>' => {
